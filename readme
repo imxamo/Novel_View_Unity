@@ -48,3 +48,34 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
 장면당 수 분~수십 분 파인튜닝으로 디테일을 올릴 수 있다고 함.
 
 실내별로 조명·블라인드 상태를 최대한 일관되게 촬영하면 appearance 임베딩 의존도를 낮출 수 있어 결과가 더 선명하다.
+
+
+6) 학습 순서 
+  - 학습 준비
+    1. 환경 세팅
+      conda 가상환경 세팅
+      경로 설정 : IBRNet 기본 세팅에 맞춤
+      데이터폴더\data\classrooms\강의실명\images, sparse\0
+      images 폴더에서 경로란 클릭, powershell 입력 엔터
+      $cnt=1; gci *.jpg | sort $_.LastWriteTime | % { mv $_ ("img{0:D4}.jpg" -f $cnt); $cnt++ }
+      하면 이미지 파일 일괄 rename 가능 
+      colmap : 환경변수 path에 colmap, colmap\bin 추가
+    
+    2. colmap feature 추출
+      conda powershell에서 :
+        conda activate 가상환경명
+        colmap
+        으로 colmap 실행
+      colmap에서 :
+        File → New Project
+        DB 파일 경로 입력 : C:\데이터폴더\data\classrooms\강의실명\database.db
+        Images 경로 입력 : C:\데이터폴더\data\classrooms\강의실명\images -> save
+        Processing → Feature Extract -> Extract
+        Processing → Feature Matching -> Run
+        Reconstruction → Start Reconstruction (오래 걸림)
+        File → Extract model as txt
+        강의실명\sparse\0\ 의 위치에 txt파일 옮기기 (db파일 제외)
+
+    3. json 파일 생성
+      C:\데이터폴더\data\classrooms\강의실명\sparse\0\transforms.json 생성
+
