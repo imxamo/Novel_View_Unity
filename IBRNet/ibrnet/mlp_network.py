@@ -269,4 +269,3 @@ class IBRNet(nn.Module):
         rgb_out = torch.sum(rgb_in*blending_weights_valid, dim=2)
         out = torch.cat([rgb_out, sigma_out], dim=-1)
         return out
-
