@@ -27,11 +27,34 @@ rng = np.random.RandomState(234)
 def parse_camera(params):
 
     if isinstance(params, dict):
-        H = params['H']
-        W = params['W']
-        intrinsics = params['intrinsics']   # 보통 [fx, fy, cx, cy] tensor
-        c2w_mat = params['c2w']             # (4, 4) tensor
-        return W, H, intrinsics, c2w_mat
+        H = int(params["H"])
+        W = int(params["W"])
+
+        intr = params["intrinsics"]   # [fx, fy, cx, cy] 텐서
+        if isinstance(intr, np.ndarray):
+            intr = torch.from_numpy(intr).float()
+        else:
+            intr = intr.float()
+
+        # fx, fy, cx, cy에서 3x3 K 행렬 만들기
+        fx, fy, cx, cy = intr  # (4,)
+        K = torch.zeros(1, 3, 3, dtype=intr.dtype, device=intr.device)
+        K[0, 0, 0] = fx
+        K[0, 1, 1] = fy
+        K[0, 0, 2] = cx
+        K[0, 1, 2] = cy
+        K[0, 2, 2] = 1.0
+
+        c2w = params["c2w"]
+        if isinstance(c2w, np.ndarray):
+            c2w = torch.from_numpy(c2w).float()
+        else:
+            c2w = c2w.float()
+
+        if c2w.dim() == 2:
+            c2w = c2w.unsqueeze(0)
+
+        return W, H, K, c2w   # intrinsics=(1,3,3), c2w=(1,4,4)
     
     H = params[:, 0]
     W = params[:, 1]
