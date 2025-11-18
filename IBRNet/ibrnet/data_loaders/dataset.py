@@ -39,7 +39,7 @@ class TransformsDataset(Dataset):
             # 리스트 등
             scene_names = list(scenes)
 
-        # 우선은 첫 번째 씬만 사용 (필요하면 나중에 여러 씬 지원으로 확장)
+        # 첫 번째 씬만 사용
         self.scene_name = scene_names[0]
         self.scene_root = rootdir / self.scene_name
 
@@ -78,7 +78,7 @@ class TransformsDataset(Dataset):
             imgs.append(im)
         self.images = np.stack(imgs, axis=0)  # (N, H, W, 3)
 
-        # ----- intrinsics (대충 pinhole) -----
+        # intrinsic
         fx = fy = 0.5 * self.W
         cx = self.W * 0.5
         cy = self.H * 0.5
@@ -112,7 +112,7 @@ class TransformsDataset(Dataset):
         # num_source_views 만큼만 사용 (config의 args.num_source_views)
         N_src_cfg = getattr(self.args, "num_source_views", 4)
         if len(src_ids) > N_src_cfg:
-            # 간단히 앞에서 N개만 사용 (원하면 랜덤샘플링 가능)
+            # 앞에서 N개만 사용 (원하면 랜덤샘플링 가능)
             src_ids = src_ids[:N_src_cfg]
 
         src_rgbs = self.images[src_ids]       # (N_src, H, W, 3), np.float32
@@ -145,12 +145,7 @@ class TransformsDataset(Dataset):
             src_cam_vecs[i, 2:18] = intr_flat
             src_cam_vecs[i, 18:34] = src_c2w[i].reshape(-1)
 
-        # ----- 깊이 범위 (near, far) 대충 설정 -----
-        # classroom 씬이면 대략 0.5m ~ 5m 정도로 시작해 보고, 나중에 튜닝 가능
         depth_range = np.array([0.5, 5.0], dtype=np.float32)
-
-        # ----- numpy → torch -----
-        import torch
 
         sample = {
             "rgb":        torch.from_numpy(tgt_rgb),          # (H, W, 3)
