@@ -25,75 +25,12 @@ rng = np.random.RandomState(234)
 
 
 def parse_camera(params):
-    if isinstance(params, dict):
-        H_val = int(params["H"])
-        W_val = int(params["W"])
-
-        intr = params["intrinsics"]  # 가능성: (4,), (1,4), (3,3), (1,3,3)
-
-        if isinstance(intr, np.ndarray):
-            intr_t = torch.from_numpy(intr).float()
-        elif isinstance(intr, torch.Tensor):
-            intr_t = intr.float()
-        else:
-            intr_t = torch.tensor(intr, dtype=torch.float32)
-
-        # 모양에 따라
-        # (4,) 또는 (1,4) → [fx, fy, cx, cy]로 해석
-        if (intr_t.ndim == 1 and intr_t.numel() == 4) or \
-           (intr_t.ndim == 2 and intr_t.shape == (1, 4)):
-            intr_flat = intr_t.view(-1)  # (4,)
-            fx, fy, cx, cy = intr_flat
-            K = torch.zeros(1, 3, 3, dtype=intr_t.dtype, device=intr_t.device)
-            K[0, 0, 0] = fx
-            K[0, 1, 1] = fy
-            K[0, 0, 2] = cx
-            K[0, 1, 2] = cy
-            K[0, 2, 2] = 1.0
-
-        elif intr_t.ndim == 2 and intr_t.shape == (3, 3):
-            # 이미 3x3 K인 경우
-            K = intr_t.unsqueeze(0)
-
-        elif intr_t.ndim == 3 and intr_t.shape[1:] == (3, 3):
-            # (1,3,3) 같은 경우
-            K = intr_t
-
-        else:
-            raise ValueError(f"Unexpected intrinsics shape: {intr_t.shape}")
-
-        c2w = params["c2w"]  # 가능성: (4,4) 또는 (1,4,4)
-        if isinstance(c2w, np.ndarray):
-            c2w_t = torch.from_numpy(c2w).float()
-        elif isinstance(c2w, torch.Tensor):
-            c2w_t = c2w.float()
-        else:
-            c2w_t = torch.tensor(c2w, dtype=torch.float32)
-
-        if c2w_t.ndim == 2 and c2w_t.shape == (4, 4):
-            c2w_t = c2w_t.unsqueeze(0)  # (1,4,4)
-        elif c2w_t.ndim == 3 and c2w_t.shape[1:] == (4, 4):
-            pass  # 이미 (B,4,4)
-        else:
-            raise ValueError(f"Unexpected c2w shape: {c2w_t.shape}")
-
-        H_t = torch.tensor([H_val], dtype=torch.float32, device=K.device)  # shape: (1,)
-        W_t = torch.tensor([W_val], dtype=torch.float32, device=K.device)  # shape: (1,)
-
-        # IBRNet 쪽에서 기대하는 반환 형태
-        # (W, H, intrinsics=(1,3,3), c2w=(1,4,4))
-        return W_t, H_t, K, c2w_t
-
     H = params[:, 0]
     W = params[:, 1]
-    fx = params[:, 2]
-    fy = params[:, 3]
-    cx = params[:, 4]
-    cy = params[:, 5]
     intrinsics = params[:, 2:18].reshape((-1, 4, 4))
     c2w = params[:, 18:34].reshape((-1, 4, 4))
-    
     return W, H, intrinsics, c2w
+
 
 def dilate_img(img, kernel_size=20):
     import cv2
@@ -107,28 +44,6 @@ class RaySamplerSingleImage(object):
     def __init__(self, data, device, resize_factor=1, render_stride=1):
         super().__init__()
         self.render_stride = render_stride
-        """
-        # 키 통일 로직
-        # DU/TransformsDataset에서 온 배치라면 'camera'가 없음
-        if 'camera' not in data:
-            # dataset.py에서 출력했던 키 이용해야 함
-            # target_rgb: [H, W, 3]
-            target_rgb = data['target_rgb']  # torch.Tensor
-            H, W = target_rgb.shape[:2]
-
-            intr = data['intrinsics']        # [fx, fy, cx, cy]
-            c2w  = data['target_c2w']        # [4, 4]
-
-            # sample_ray에서 실제로 어떤 필드를 쓰는지에 따라 더 추가할 수 있음
-            # 우선 최소한 해상도 + intrinsics + pose를 넣어 준다.
-            data['camera'] = {
-                'H': H,
-                'W': W,
-                'intrinsics': intr,
-                'c2w': c2w,
-            }
-        """
-        
         self.rgb = data['rgb'] if 'rgb' in data.keys() else None
         self.camera = data['camera']
         self.rgb_path = data['rgb_path']
