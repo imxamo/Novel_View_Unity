@@ -44,6 +44,25 @@ class RaySamplerSingleImage(object):
     def __init__(self, data, device, resize_factor=1, render_stride=1):
         super().__init__()
         self.render_stride = render_stride
+        # DU/TransformsDataset에서 온 배치라면 'camera'가 없음
+        if 'camera' not in data:
+            # dataset.py에서 출력했던 키 이용해야 함
+            # target_rgb: [H, W, 3]
+            target_rgb = data['target_rgb']  # torch.Tensor
+            H, W = target_rgb.shape[:2]
+
+            intr = data['intrinsics']        # [fx, fy, cx, cy]
+            c2w  = data['target_c2w']        # [4, 4]
+
+            # sample_ray에서 실제로 어떤 필드를 쓰는지에 따라 더 추가할 수 있음
+            # 우선 최소한 해상도 + intrinsics + pose를 넣어 준다.
+            data['camera'] = {
+                'H': H,
+                'W': W,
+                'intrinsics': intr,
+                'c2w': c2w,
+            }
+        
         self.rgb = data['rgb'] if 'rgb' in data.keys() else None
         self.camera = data['camera']
         self.rgb_path = data['rgb_path']
