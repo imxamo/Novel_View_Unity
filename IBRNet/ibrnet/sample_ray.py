@@ -44,6 +44,8 @@ class RaySamplerSingleImage(object):
     def __init__(self, data, device, resize_factor=1, render_stride=1):
         super().__init__()
         self.render_stride = render_stride
+        """
+        # 키 통일 로직
         # DU/TransformsDataset에서 온 배치라면 'camera'가 없음
         if 'camera' not in data:
             # dataset.py에서 출력했던 키 이용해야 함
@@ -62,6 +64,7 @@ class RaySamplerSingleImage(object):
                 'intrinsics': intr,
                 'c2w': c2w,
             }
+        """
         
         self.rgb = data['rgb'] if 'rgb' in data.keys() else None
         self.camera = data['camera']
