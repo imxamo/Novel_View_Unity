@@ -89,7 +89,7 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
       다른 장소를 학습할 때 finetune_DU에 경로를 수정해 줄 것
       모델파일 덮어써지니까 제발 ctrl+f로 확인하셈
       제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발
-      모델 로컬로 옮기기 : scp -i .\imxamo.pem -r ubuntu@146.235.205.13:/home/ubuntu/datasets/classrooms/out C:\NovelView_IBRNet\data\classrooms\out
+      모델 로컬로 옮기기 : 백로그
 
     6. 비디오 렌더링 : 무거움
       cd ~/Novel_View/IBRNet
