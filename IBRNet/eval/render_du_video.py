@@ -11,7 +11,9 @@ import imageio
 import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('../')
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
 
 from config import config_parser
 from ibrnet.sample_ray import RaySamplerSingleImage        # :contentReference[oaicite:0]{index=0}
