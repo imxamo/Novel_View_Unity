@@ -87,8 +87,10 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
     4. 학습
       IBRNet에서 : python train.py --config configs/finetune_DU.txt -j 0
       다른 장소를 학습할 때 finetune_DU에 경로를 수정해 줄 것
+      모델파일 덮어써지니까 제발 ctrl+f로 확인하셈
+      제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발
 
-    5. 비디오 렌더링 : 무거움
+    6. 비디오 렌더링 : 무거움
       cd ~/Novel_View/IBRNet
       mkdir -p eval
       nano eval/render_du_video.py
