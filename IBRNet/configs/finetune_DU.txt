@@ -1,112 +1,67 @@
-# configs/finetune_DU.txt
-# IBRNet + DU (transforms.json) 실험용 설정
+# configs/finetune_DU_24GB_3h.txt
+# IBRNet + DU (transforms.json) 실험용 설정 (24GB GPU, 1 scene ≈ 3h)
 
-# 어떤 데이터셋을 쓸지 (dataset_dict 키)
+#############################################
+# DATASET
+#############################################
+
 train_dataset = DU
-
-# 여러 데이터셋 섞어 쓸 때 가중치인데, 지금은 하나만 쓰니까 1.0
 dataset_weights = 1.0
 
-# 우리 데이터 루트: C:/NovelView_IBRNet/data/classrooms/609 이런 구조
+# 데이터 루트
 rootdir = C:/NovelView_IBRNet/data/classrooms
 
-# 학습에 사용할 씬 이름들 (폴더 이름 기준)
+# 학습할 씬 (폴더 이름 기준)
 train_scenes = 609
 
-# --------- 학습 관련 하이퍼파라미터 ---------
+#############################################
+# TRAINING HYPERPARAMS
+#############################################
 
-# 한 iteration당 샘플링할 ray 개수 (공식 코드 기본값도 이 근처)
-N_rand = 256
+# STEP 당 ray 개수
+# 기존: 256 → 1024은 너무 큼 → 24GB 기준 최적화: 512
+N_rand = 512        # CHANGED : 3h 타겟
 
-# 총 iteration 수 (= max_steps 비슷한 역할)
-n_iters = 10000
+# 총 iteration 수
+# 기존 10000 유지 → 24GB에서 대략 2.5~3.5시간 사이
+n_iters = 9000       # CHANGED : 3h 타겟
 
-# coarse / fine 샘플 개수
-N_samples = 48
-N_importance = 32
+# coarse/fine sample 수
+N_samples = 64       # CHANGED
+N_importance = 64    # CHANGED
 
-# 학습률 (필요하면 나중에 조정)
+# Learning rate
 lrate_feature = 5e-4
 lrate_mlp = 5e-4
 
-# learning rate decay 관련 (그냥 기본 느낌으로)
+# LR decay
 lrate_decay_factor = 0.5
 lrate_decay_steps = 200000
 
-# coarse / fine feature 차원 (원래 config 참고해서)
+# feature dims
 coarse_feat_dim = 32
 fine_feat_dim = 32
 
-# 한 타겟 뷰당 선택할 소스 뷰 수 (DU dataset 구현과 맞추기)
-num_source_views = 1
+# 소스뷰 수
+num_source_views = 4
 
-# 기타 옵션들은 기본값 사용 (필요하면 나중에 켜기)
-# inv_uniform = False
-# det = False
-# white_bkgd = False
+#############################################
+# LOGGING / SAVING
+#############################################
 
-# 몇 iteration마다 로그/이미지/weight 저장할지
 i_print   = 100
-i_img     = 1000
-i_weights = 5000
+i_img     = 1500      # CHANGED
+i_weights = 3000      # CHANGED
 
-# 실험 이름 (결과가 logs/expname_* 아래 저장됨)
+#############################################
+# EXP
+#############################################
+
 expname = DU_609
 
-# configs/finetune_DU.txt
-# IBRNet + DU (transforms.json) 실험용 설정
-
-# 어떤 데이터셋을 쓸지 (dataset_dict 키)
-train_dataset = DU
-
-# 여러 데이터셋 섞어 쓸 때 가중치인데, 지금은 하나만 쓰니까 1.0
-dataset_weights = 1.0
-
-# 우리 데이터 루트: C:/NovelView_IBRNet/data/classrooms/609 이런 구조
-rootdir = C:/NovelView_IBRNet/data/classrooms
-
-# 학습에 사용할 씬 이름들 (폴더 이름 기준)
-train_scenes = 609
-
-# --------- 학습 관련 하이퍼파라미터 ---------
-
-# 한 iteration당 샘플링할 ray 개수 (공식 코드 기본값도 이 근처)
-N_rand = 1024
-
-# 총 iteration 수 (= max_steps 비슷한 역할)
-n_iters = 10000
-
-# coarse / fine 샘플 개수
-N_samples = 64
-N_importance = 64
-
-# 학습률 (필요하면 나중에 조정)
-lrate_feature = 5e-4
-lrate_mlp = 5e-4
-
-# learning rate decay 관련 (그냥 기본 느낌으로)
-lrate_decay_factor = 0.5
-lrate_decay_steps = 200000
-
-# coarse / fine feature 차원 (원래 config 참고해서)
-coarse_feat_dim = 32
-fine_feat_dim = 32
-
-# 한 타겟 뷰당 선택할 소스 뷰 수 (DU dataset 구현과 맞추기)
-num_source_views = 3
-
-# 기타 옵션들은 기본값 사용 (필요하면 나중에 켜기)
-# inv_uniform = False
-# det = False
-# white_bkgd = False
-
-# 몇 iteration마다 로그/이미지/weight 저장할지
-i_print   = 100
-i_img     = 1000
-i_weights = 5000
-
-# 실험 이름 (결과가 logs/expname_* 아래 저장됨)
-expname = DU_609
+#############################################
+# EVAL
+#############################################
 
 eval_dataset = DU
 eval_scenes = 609
