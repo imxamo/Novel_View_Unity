@@ -92,7 +92,7 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
       mkdir -p eval
       nano eval/render_du_video.py
       cd ~/Novel_View/IBRNet
-      python eval/render_du_video.py --config configs/finetune_DU.txt
+      python eval/DU_render_video.py --config configs/finetune_DU.txt
 
     
 
