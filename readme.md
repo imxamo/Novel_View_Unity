@@ -80,6 +80,15 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
       cd 코드 위치에서
       python tools\colmap_to_transforms.py --scene_root C:\데이터폴더\data\classrooms\강의실명\sparse\0 --downscale 2
       -> C:\데이터폴더\data\classrooms\강의실명\sparse\0\transforms_2x.json 생성
+      * 집컴으로 안할 때 : 다운스케일링 필요 x
+      python tools\colmap_to_transforms.py --scene_root C:\NovelView_IBRNet\data\classrooms\609 --downscale 1
 
-    4. IBRNet에서 : python train.py --config configs/finetune_DU.txt -j 0
+    4. 학습
+      IBRNet에서 : python train.py --config configs/finetune_DU.txt -j 0
+
+    5. 비디오 렌더링
+        cd ~/Novel_View/IBRNet
+        mkdir -p eval
+        nano eval/render_du_video.py
+    
 
