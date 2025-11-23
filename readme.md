@@ -84,19 +84,12 @@ IBRNet은 사전학습 가중치를 사용하면 제로샷 성능이 좋음. 공
       python tools\colmap_to_transforms.py --scene_root C:\NovelView_IBRNet\data\classrooms\609 --downscale 1
       모델 생성 시간과 영상 렌더링 시간 이슈로 다운 스케일 필요함. --downscale 2 적용
 
-    4. 학습
+    4. 학습 : Lambda Labs 이용
       IBRNet에서 : python train.py --config configs/finetune_DU.txt -j 0
       다른 장소를 학습할 때 finetune_DU에 경로를 수정해 줄 것
       모델파일 덮어써지니까 제발 ctrl+f로 확인하셈
       제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발제발
       모델 로컬로 옮기기 : 백로그
 
-    6. 비디오 렌더링 : 무거움
-      cd ~/Novel_View/IBRNet
-      mkdir -p eval
-      nano eval/render_du_video.py
-      cd ~/Novel_View/IBRNet
-      python eval/DU_render_video.py --config configs/finetune_DU.txt
-
-    
+    6. 비디오 렌더링 : 무거움 -> 로컬에서 돌리지 말 것    
 
