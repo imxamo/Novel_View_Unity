@@ -59,16 +59,7 @@ def train(args):
 
     device = "cuda:{}".format(args.local_rank)
     out_folder = os.path.join(args.rootdir, 'out', args.expname)
-    # ===== 모델 덮어쓰기 방지 코드 =====
-    # out_folder가 이미 존재하면 학습을 시작하지 않고 종료
-    if os.path.exists(out_folder):
-        raise ValueError(
-            f"[ERROR] Save directory '{out_folder}' already exists! "
-            f"Change expname or delete the folder if you really want to overwrite."
-        )
-    # ===== 모델 덮어쓰기 방지 코드 =====
-    
-    print('outputs will be sibraved to {}'.format(out_folder))
+    print('outputs will be saved to {}'.format(out_folder))
     os.makedirs(out_folder, exist_ok=True)
 
     # save the args and config files
