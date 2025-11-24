@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from torch.utils.data import Dataset
 import sys
 sys.path.append('../')
+import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from torch.utils.data import DataLoader
 import imageio
