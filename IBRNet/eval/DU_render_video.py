@@ -179,7 +179,7 @@ def main():
     print("Scene radius:", radius)
 
     # 카메라 궤적 생성
-    N_frames = 60   # ← 여기서 영상 길이 결정 (fps=30이면 4초)
+    N_frames = 120 # ← 여기서 영상 길이 결정 (fps=30이면 4초)
     render_poses = render_path_spiral(center, radius, N_frames=N_frames)
 
     # test 데이터 하나 로드 (src view용)
