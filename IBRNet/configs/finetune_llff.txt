@@ -1,6 +1,6 @@
 ### INPUT
 expname = finetune_llff
-rootdir = /home/Novel_View/IBRNet  # REPLACE THIS with YOUR PATH.
+rootdir = /home/ubuntu/Novel_View/IBRNet  # REPLACE THIS with YOUR PATH.
 ckpt_path = None  # REPLACE THIS with YOUR PATH. /home/qw246/S7/code/IBRNet/pretrained/model_255000.pth
 no_reload = True
 render_stride = 2
