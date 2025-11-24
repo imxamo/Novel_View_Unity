@@ -127,6 +127,11 @@ class LLFFRenderDataset(Dataset):
 
 if __name__ == '__main__':
     parser = config_parser()
+
+    parser.add_argument('--scenes', type=str, nargs='+', default=[], help='scenes to render')
+    parser.add_argument('--render_video_dir', type=str, default=None, help='dir to save rendered video')
+    parser.add_argument('--render_video_fps', type=int, default=30, help='fps of rendered video')
+    
     args = parser.parse_args()
     args.distributed = False
 
