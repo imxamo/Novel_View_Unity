@@ -1,10 +1,10 @@
-# eval/render_du_video.py
-# 학습된 IBRNet 모델을 사용해 뷰들을 렌더링하고
-# 결과를 mp4 영상으로 저장하는 코드
+# DU_render_video.py
+# DU 데이터셋 + IBRNet으로 LLFF-style novel view trajectory 생성 및 렌더링
 
 import os
 import sys
 import time
+import json
 import numpy as np
 import imageio
 
@@ -16,133 +16,169 @@ if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from config import config_parser
-from ibrnet.sample_ray import RaySamplerSingleImage        # :contentReference[oaicite:0]{index=0}
-from ibrnet.render_image import render_single_image        # :contentReference[oaicite:1]{index=1}
 from ibrnet.model import IBRNetModel
-from utils import colorize_np                              # :contentReference[oaicite:2]{index=2}
-from ibrnet.projection import Projector                    # :contentReference[oaicite:3]{index=3}
-from ibrnet.data_loaders import dataset_dict               # 학습과 동일한 DU 데이터셋 사용
+from ibrnet.render_image import render_single_image
+from ibrnet.sample_ray import RaySamplerSingleImage
+from ibrnet.projection import Projector
+from ibrnet.data_loaders import dataset_dict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+# ------------------------------------------------------------
+# 1) transforms.json 로드해서 포즈 정보 가져오기
+# ------------------------------------------------------------
+def load_du_poses(scene_root):
+    tf_path = os.path.join(scene_root, "sparse/0/transforms.json")
+    with open(tf_path, "r") as f:
+        meta = json.load(f)
+
+    frames = meta["frames"]
+    poses = []
+    for fr in frames:
+        poses.append(np.array(fr["transform_matrix"], dtype=np.float32))
+    poses = np.stack(poses, axis=0)  # (N,4,4)
+
+    H, W = meta["h"], meta["w"]
+    return poses, H, W
 
 
+# ------------------------------------------------------------
+# 2) 장면 중심/반지름 계산
+# ------------------------------------------------------------
+def get_scene_center_and_radius(poses):
+    centers = poses[:, :3, 3]
+    center = np.mean(centers, axis=0)
+
+    # 반지름은 평균 거리
+    radius = np.mean(np.linalg.norm(centers - center, axis=1))
+    return center, radius
+
+
+# ------------------------------------------------------------
+# 3) LLFF-style 원형/나선 카메라 경로 생성
+# ------------------------------------------------------------
+def render_path_spiral(center, radius, N_frames=120, height=0.0, depth=0.0):
+    render_poses = []
+
+    for theta in np.linspace(0, 2 * np.pi, N_frames, endpoint=False):
+        c2w = np.eye(4, dtype=np.float32)
+
+        # 카메라 위치 (원 궤적)
+        x = radius * np.cos(theta)
+        y = height                     # 상하 이동은 고정 또는 수정 가능
+        z = radius * np.sin(theta)
+
+        pos = np.array([x, y, z]) + center
+
+        # 카메라 바라보는 방향: center - pos
+        forward = center - pos
+        forward = forward / np.linalg.norm(forward)
+
+        # world up
+        up = np.array([0, 1, 0], dtype=np.float32)
+        right = np.cross(forward, up)
+        right = right / np.linalg.norm(right)
+        up = np.cross(right, forward)
+
+        # world to cam 구성
+        c2w[:3, 0] = right
+        c2w[:3, 1] = up
+        c2w[:3, 2] = forward
+        c2w[:3, 3] = pos
+
+        render_poses.append(c2w)
+
+    return np.stack(render_poses, axis=0)
+
+
+# ------------------------------------------------------------
+# 4) 프레임 렌더링
+# ------------------------------------------------------------
+def render_single_pose(model, projector, device, data, pose, args):
+    # pose를 타겟 카메라로 강제로 교체
+    data["c2w"] = torch.from_numpy(pose).unsqueeze(0).float()
+
+    with torch.no_grad():
+        ray_sampler = RaySamplerSingleImage(data, device=device)
+        ray_batch = ray_sampler.get_all()
+
+        featmaps = model.feature_net(
+            ray_batch["src_rgbs"].squeeze(0).permute(0, 3, 1, 2)
+        )
+
+        ret = render_single_image(
+            ray_sampler=ray_sampler,
+            ray_batch=ray_batch,
+            model=model,
+            projector=projector,
+            chunk_size=args.chunk_size,
+            det=True,
+            N_samples=args.N_samples,
+            inv_uniform=args.inv_uniform,
+            N_importance=args.N_importance,
+            white_bkgd=args.white_bkgd,
+            featmaps=featmaps
+        )
+
+    rgb = ret["outputs_fine"]["rgb"] if ret["outputs_fine"] is not None else ret["outputs_coarse"]["rgb"]
+    rgb = rgb.detach().cpu().numpy()
+    rgb = np.clip(rgb, 0.0, 1.0)
+
+    return (rgb * 255).astype(np.uint8)
+
+
+# ------------------------------------------------------------
+# 5) main
+# ------------------------------------------------------------
 def main():
     parser = config_parser()
     args = parser.parse_args()
     args.distributed = False
 
-    # 1) 모델 로드
-    model = IBRNetModel(args, load_scheduler=False, load_opt=False)
     device = "cuda:0"
-
-    eval_dataset_name = args.eval_dataset
-    extra_out_dir = '{}/{}'.format(eval_dataset_name, args.expname)
-    print("saving results to eval/{}...".format(extra_out_dir))
-    os.makedirs(extra_out_dir, exist_ok=True)
-
     projector = Projector(device=device)
 
-    assert len(args.eval_scenes) == 1, "현재는 eval_scenes에 하나의 씬만 지원"
+    # 모델 로드
+    model = IBRNetModel(args, load_scheduler=False, load_opt=False)
+    model.switch_to_eval()
+
+    # 어떤 씬?
     scene_name = args.eval_scenes[0]
+    scene_root = os.path.join(args.rootdir, scene_name)
 
-    # 체크포인트 step별 폴더 (eval.py / render_llff_video.py와 동일 구조) 
-    out_scene_dir = os.path.join(
-        extra_out_dir,
-        '{}_{:06d}'.format(scene_name, model.start_step),
-        'videos'
-    )
-    os.makedirs(out_scene_dir, exist_ok=True)
-    print("per-frame results will be saved to:", out_scene_dir)
+    # transforms 읽기
+    poses, H, W = load_du_poses(scene_root)
+    center, radius = get_scene_center_and_radius(poses)
 
-    # 2) DU 데이터셋의 test split 사용
+    print("Scene center:", center)
+    print("Scene radius:", radius)
+
+    # 카메라 궤적 생성
+    N_frames = 120   # ← 여기서 영상 길이 결정 (fps=30이면 4초)
+    render_poses = render_path_spiral(center, radius, N_frames=N_frames)
+
+    # test 데이터 하나 로드 (src view용)
     test_dataset = dataset_dict[args.eval_dataset](args, 'test', scenes=args.eval_scenes)
     test_loader = DataLoader(test_dataset, batch_size=1)
+    data = next(iter(test_loader))
 
-    out_frames = []
-    crop_ratio = 0.075  # render_llff_video.py에서 쓰던 것과 동일 비율로 바깥 테두리 잘라내기 :contentReference[oaicite:5]{index=5}
+    # 출력 경로
+    out_dir = f"eval/{args.eval_dataset}_{args.expname}/spiral_video"
+    os.makedirs(out_dir, exist_ok=True)
 
-    total_num = len(test_loader)
-    print("num test views:", total_num)
+    frames = []
 
-    for i, data in enumerate(test_loader):
+    for i, pose in enumerate(render_poses):
         start = time.time()
+        frame = render_single_pose(model, projector, device, data, pose, args)
+        frames.append(frame)
 
-        # src view 평균 이미지 저장 (디버깅용, 없어도 상관 없음)
-        if 'src_rgbs' in data:
-            src_rgbs = data['src_rgbs'][0].cpu().numpy()
-            averaged_img = (np.mean(src_rgbs, axis=0) * 255.).astype(np.uint8)
-            imageio.imwrite(
-                os.path.join(out_scene_dir, f'{i:06d}_average.png'),
-                averaged_img
-            )
-        else:
-            averaged_img = None
+        print(f"[{i+1}/{len(render_poses)}] frame done, {time.time() - start:.2f}s")
 
-        # 3) 한 뷰 렌더링
-        model.switch_to_eval()
-        with torch.no_grad():
-            ray_sampler = RaySamplerSingleImage(data, device=device)
-            ray_batch = ray_sampler.get_all()              # 모든 픽셀에 대한 ray, src_rgbs 등 :contentReference[oaicite:6]{index=6}
-            featmaps = model.feature_net(
-                ray_batch['src_rgbs'].squeeze(0).permute(0, 3, 1, 2)
-            )
+    # mp4 저장
+    out_video = os.path.join(out_dir, f"{scene_name}_spiral.mp4")
+    imageio.mimwrite(out_video, frames, fps=30, quality=8)
 
-            ret = render_single_image(
-                ray_sampler=ray_sampler,
-                ray_batch=ray_batch,
-                model=model,
-                projector=projector,
-                chunk_size=args.chunk_size,
-                det=True,
-                N_samples=args.N_samples,
-                inv_uniform=args.inv_uniform,
-                N_importance=args.N_importance,
-                white_bkgd=args.white_bkgd,
-                featmaps=featmaps
-            )                                             # 
-
-            torch.cuda.empty_cache()
-
-        # coarse / fine 결과에서 RGB만 뽑기
-        coarse_pred_rgb = ret['outputs_coarse']['rgb'].detach().cpu()
-        coarse_pred_rgb_np = (
-            255 * np.clip(coarse_pred_rgb.numpy(), a_min=0.0, a_max=1.0)
-        ).astype(np.uint8)
-        image_path_coarse = os.path.join(
-            out_scene_dir, f'{i:06d}_pred_coarse.png'
-        )
-        imageio.imwrite(image_path_coarse, coarse_pred_rgb_np)
-
-        if ret['outputs_fine'] is not None:
-            fine_pred_rgb = ret['outputs_fine']['rgb'].detach().cpu()
-            fine_pred_rgb_np = (
-                255 * np.clip(fine_pred_rgb.numpy(), a_min=0.0, a_max=1.0)
-            ).astype(np.uint8)
-            image_path_fine = os.path.join(
-                out_scene_dir, f'{i:06d}_pred_fine.png'
-            )
-            imageio.imwrite(image_path_fine, fine_pred_rgb_np)
-            frame = fine_pred_rgb_np
-        else:
-            frame = coarse_pred_rgb_np
-
-        # 4) 가장자리 crop 해서 프레임으로 사용 (옵션)
-        if averaged_img is not None:
-            h, w = averaged_img.shape[:2]
-        else:
-            h, w = frame.shape[:2]
-
-        crop_h = int(h * crop_ratio)
-        crop_w = int(w * crop_ratio)
-        frame_cropped = frame[crop_h:h - crop_h, crop_w:w - crop_w, :]
-        out_frames.append(frame_cropped)
-
-        print(f'frame {i+1}/{total_num} done, time {time.time() - start:.3f}s')
-
-    # 5) mp4로 저장
-    video_path = os.path.join(extra_out_dir, f'{scene_name}.mp4')
-    imageio.mimwrite(video_path, out_frames, fps=30, quality=8)
-    print("video saved to:", video_path)
+    print("Saved video:", out_video)
 
 
 if __name__ == "__main__":
