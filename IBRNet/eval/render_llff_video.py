@@ -55,7 +55,9 @@ class LLFFRenderDataset(Dataset):
         for i, scene in enumerate(scenes):
             scene_path = os.path.join(self.folder_path, scene)
             _, poses, bds, render_poses, i_test, rgb_files = load_llff_data(scene_path, load_imgs=False, factor=4)
-            near_depth = np.min(bds)
+            # near_depth = np.min(bds)
+            # far_depth = np.max(bds)
+            near_depth = np.maximum(np.min(bds), 0.1)
             far_depth = np.max(bds)
             intrinsics, c2w_mats = batch_parse_llff_poses(poses)
             h, w = poses[0][:2, -1]
